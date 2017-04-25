@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <title>webaudio sample</title>
+</head>
+<body>
+  <div id="main"></div>
+
+  <script>
+  var audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+  var oscillator = audioContext.createOscillator();
+
+  oscillator.type = 'sine';
+  oscillator.frequency.value = 440;
+  oscillator.connect(audioContext.destination);
+  oscillator.start();
+  </script>
+</body>
+</html>
