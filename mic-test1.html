@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <title>webaudio sample</title>
+</head>
+<body>
+  <div id="main"></div>
+
+  <script>
+  var audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+  navigator.mediaDevices.getUserMedia({
+    audio: true,
+    video: false,
+  }).then(function(stream) {
+    var input = audioContext.createMediaStreamSource(stream);
+
+    console.log("getUserMedia is supported")
+
+  }).catch(function(err) {
+    console.log(err.name + ": " + err.message);
+  })
+
+
+  </script>
+</body>
+</html>
