@@ -9,12 +9,17 @@
 
   <script>
   var audioContext = new (window.AudioContext || window.webkitAudioContext)();
+  var biquadFilter = audioContext.createBiquadFilter();
+  biquadFilter.type = "lowpass";
+  biquadFilter.frequency.value = 1600;
+  biquadFilter.connect(audioContext.destination);
 
   navigator.mediaDevices.getUserMedia({
     audio: true,
     video: false,
   }).then(function(stream) {
     var input = audioContext.createMediaStreamSource(stream);
+    input.connect(biquadFilter);
 
     console.log("getUserMedia is supported")
 
