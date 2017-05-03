@@ -10,7 +10,15 @@
     <button id="play">Play sound</button>
     <button id="draw">Draw graph</button>
 
-    <div id="graph"></div>
+    <div>
+      <div style="display: inline-block;" id="wave"></div>
+      <div style="display: inline-block;" id="pwave"></div>
+    </div>
+
+    <div>
+      <div style="display: inline-block;" id="ampspectrum"></div>
+      <div style="display: inline-block;" id="powerspectrum"></div>
+    </div>
   </div>
 
   <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
@@ -64,7 +72,7 @@
 
       return result;
     }
-    
+
     function draw() {
       var sampleRate = context.sampleRate;
       var len = audioBuffer.length;
@@ -76,14 +84,81 @@
       var wavdata = wav.slice(center - cuttime/2*sampleRate, center + cuttime/2*sampleRate);
       var time = t.slice(center - cuttime/2*sampleRate, center + cuttime/2*sampleRate);
 
+      var owavdata = wavdata.slice();
+
+      // pre-emphasis filter
+      var pwavdata = preEmphasis(wavdata, 0.97);
+
+      // DFT
+      // var n = 2048
+      var im = new Array(len).fill(0);
+
+      // cannot specify N yet
+      minifft(wavdata, im);
+
+      var Adft = Array(parseInt(len/2)),
+          Pdft = Array(parseInt(len/2)),
+          freqList = Array(parseInt(len/2));
+      for (var i = 0; i < parseInt(len/2); i+=1) {
+        Pdft[i] = wavdata[i] * wavdata[i] + im[i] * im[i]
+        Adft[i] = Math.sqrt(Pdft[i]);
+        freqList[i] = i * sampleRate / len;
+      }
+
       // plotly.js does not support typed array, so we should convert it to Array
       // like, Array.prototype.slice.call( Typed Array )
-      var graph = document.getElementById('graph');
+      var graph = document.getElementById('wave');
       Plotly.plot( graph, [{
         x: time.map(function(t) { return t * 1000;}),
-        y: Array.prototype.slice.call(wavdata),
+        y: Array.prototype.slice.call(owavdata),
       }]);
+      var graph = document.getElementById('pwave');
+      Plotly.plot( graph, [{
+        x: time.map(function(t) { return t * 1000;}),
+        y: Array.prototype.slice.call(pwavdata),
+      }]);
+    }
 
+
+    /*
+     * pre emphasis filter
+     *   y(n) = x(n) - p x(n - 1)
+     */
+    function preEmphasis(signal, p = 0.97) {
+      var y = [];
+      y[0] = signal[0];
+      for(var i = 1; i < signal.length; i+=1){
+        y[i] = signal[i] - ( p * signal[i - 1]);
+      }
+
+      return y;
+    }
+
+    function minifft(re, im, n = 0) {
+      var N = re.length;
+      for (var i = 0; i < N; i+=1) {
+        for(var j = 0, h = i, k = N; k >>= 1; h >>= 1) {
+          j = (j << 1) | (h & 1);
+        }
+        if (j > i) {
+          re[j] = [re[i], re[i] = re[j]][0];
+          im[j] = [im[i], im[i] = im[j]][0];
+        }
+      }
+      for(var hN = 1; hN * 2 <= N; hN *= 2) {
+        for(var i = 0; i < N; i+= hN * 2) {
+          for(var j = i; j < i + hN; j+=1) {
+            var cos = Math.cos(Math.PI * (j - i) / hN),
+                sin = Math.sin(Math.PI * (j - i) / hN);
+            var tre =  re[j+hN] * cos + im[j+hN] * sin,
+                tim = -re[j+hN] * sin + im[j+hN] * cos;
+            re[j+hN] = re[j] - tre;
+            im[j+hN] = im[j] - tim;
+            re[j] += tre;
+            im[j] += tim;
+          }
+        }
+      }
     }
 
     function onError() {
