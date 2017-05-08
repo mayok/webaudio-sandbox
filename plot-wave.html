@@ -10,7 +10,15 @@
     <button id="play">Play sound</button>
     <button id="draw">Draw graph</button>
 
-    <div id="graph"></div>
+    <div>
+      <div style="display: inline-block;" id="wave"></div>
+      <div style="display: inline-block;" id="pwave"></div>
+    </div>
+
+    <div>
+      <div style="display: inline-block;" id="ampspectrum"></div>
+      <div style="display: inline-block;" id="powerspectrum"></div>
+    </div>
   </div>
 
   <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
@@ -64,7 +72,7 @@
 
       return result;
     }
-    
+
     function draw() {
       var sampleRate = context.sampleRate;
       var len = audioBuffer.length;
@@ -76,14 +84,117 @@
       var wavdata = wav.slice(center - cuttime/2*sampleRate, center + cuttime/2*sampleRate);
       var time = t.slice(center - cuttime/2*sampleRate, center + cuttime/2*sampleRate);
 
+      var owavdata = wavdata.slice();
+
+      // pre-emphasis filter
+      var pwavdata = preEmphasis(wavdata, 0.97);
+
+      var hammingWindow = hamming(pwavdata.length);
+      for(var i = 0; i < pwavdata.length; i +=1 ) {
+        pwavdata[i] *= hammingWindow[i]
+      }
+
+      // DFT
+      // number of samples
+      var n = 2048
+      var im = [];
+      [wavdata, im] = minifft(pwavdata, n);
+
+
+      var Adft = [],
+          Pdft = [],
+          freqList = [];
+      for (var i = 0; i < n/2; i+=1) {
+        Pdft[i] = wavdata[i] * wavdata[i] + im[i] * im[i]
+        Adft[i] = Math.sqrt(Pdft[i]);
+        freqList[i] = i * sampleRate / n;
+      }
+
       // plotly.js does not support typed array, so we should convert it to Array
       // like, Array.prototype.slice.call( Typed Array )
-      var graph = document.getElementById('graph');
+      var graph = document.getElementById('wave');
       Plotly.plot( graph, [{
         x: time.map(function(t) { return t * 1000;}),
-        y: Array.prototype.slice.call(wavdata),
+        y: Array.prototype.slice.call(owavdata),
+      }]);
+      var graph = document.getElementById('pwave');
+      Plotly.plot( graph, [{
+        x: time.map(function(t) { return t * 1000;}),
+        y: Array.prototype.slice.call(pwavdata),
       }]);
 
+      var graph = document.getElementById('ampspectrum');
+      Plotly.plot( graph, [{
+        x: freqList,
+        y: Adft,
+      }]);
+      var graph = document.getElementById('powerspectrum');
+      Plotly.plot( graph, [{
+        x: freqList,
+        y: Pdft,
+      }]);
+    }
+
+    /*
+     * hamming window
+     *   w(n) = 0.54 - 0.46 cos( 2 PI n / (M - 1) ), 0 <= n <= M - 1
+     */
+     function hamming(n) {
+       var w = [];
+       for(var i = 0; i < n; i += 1) {
+         w[i] = 0.54 - 0.46 * Math.cos( 2.0 * Math.PI * i / (n - 1));
+       }
+       return w;
+     }
+
+    /*
+     * pre emphasis filter
+     *   y(n) = x(n) - p x(n - 1)
+     */
+    function preEmphasis(signal, p = 0.97) {
+      var y = [];
+      y[0] = signal[0];
+      for(var i = 1; i < signal.length; i+=1){
+        y[i] = signal[i] - ( p * signal[i - 1]);
+      }
+
+      return y;
+    }
+
+    function minifft(data, n = 0) {
+      var N = n || data.length;
+      if(data.length < n) {
+        var re = Array.prototype.slice.call(data).concat(new Array(n - data.length).fill(0));
+      } else {
+        var re = data.slice(0, n);
+      }
+      var im = new Array(n).fill(0);
+
+      for (var i = 0; i < N; i+=1) {
+        for(var j = 0, h = i, k = N; k >>= 1; h >>= 1) {
+          j = (j << 1) | (h & 1);
+        }
+        if (j > i) {
+          re[j] = [re[i], re[i] = re[j]][0];
+          im[j] = [im[i], im[i] = im[j]][0];
+        }
+      }
+      for(var hN = 1; hN * 2 <= N; hN *= 2) {
+        for(var i = 0; i < N; i+= hN * 2) {
+          for(var j = i; j < i + hN; j+=1) {
+            var cos = Math.cos(Math.PI * (j - i) / hN),
+                sin = Math.sin(Math.PI * (j - i) / hN);
+            var tre =  re[j+hN] * cos + im[j+hN] * sin,
+                tim = -re[j+hN] * sin + im[j+hN] * cos;
+            re[j+hN] = re[j] - tre;
+            im[j+hN] = im[j] - tim;
+            re[j] += tre;
+            im[j] += tim;
+          }
+        }
+      }
+
+      return [re, im];
     }
 
     function onError() {
