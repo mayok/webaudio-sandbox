@@ -134,6 +134,8 @@
         );
       });
 
+      console.log(dct(mspec, norm=true).slice(0,12));
+
       // plotly.js does not support typed array, so we should convert it to Array
       // like, Array.prototype.slice.call( Typed Array )
       var graph = document.getElementById('wave');
@@ -182,6 +184,27 @@
       }], {
         xaxis: { title: 'applyed mel filterbank, 20 plot' }
       });
+    }
+
+    /*
+     * DCT: Discrete Cosine Transform
+     *
+     *
+     *            N-1
+     *  y[k] = 2* sum x[n]*cos(pi*k*(2n+1)/(2*N)), 0 <= k < N.
+     *            n=0
+     */
+    function dct(signal, norm=false) {
+      console.log(norm);
+      return Array.from(Array(signal.length).keys()).map(function(k) {
+        return (norm ? (k===0 ? Math.sqrt(1 / (4 * signal.length)) : Math.sqrt(1 / (2 * signal.length))) : 1)
+              * 2
+              * (signal.map(function(x, n) {
+                  return x * Math.cos( Math.PI * k * (2 * n + 1) / ( 2 * signal.length ))
+                }).reduce(function(acc, val) {
+                  return acc + val;
+                }, 0));
+      })
     }
 
     /*
