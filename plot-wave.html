@@ -63,7 +63,7 @@
       playSound(audioBuffer);
     }
 
-    function _range(start, stop, step) {
+    function _range(start, stop, step = 1) {
       var index = 0;
       var length = (stop - start) / step;
       var result = Array(length);
@@ -195,8 +195,7 @@
      *            n=0
      */
     function dct(signal, norm=false) {
-      console.log(norm);
-      return Array.from(Array(signal.length).keys()).map(function(k) {
+      return _range(0, signal.length).map(function(k) {
         return (norm ? (k===0 ? Math.sqrt(1 / (4 * signal.length)) : Math.sqrt(1 / (2 * signal.length))) : 1)
               * 2
               * (signal.map(function(x, n) {
@@ -231,7 +230,7 @@
       df = fs / nfft;
       dmel = melmax / (numChannels + 1)
 
-      melcenters = Array.from(Array(numChannels + 1).keys()).slice(1).map(function(e) { return e * dmel });
+      melcenters = _range(1, numChannels + 1).map(function(e) { return e * dmel });
       fcenters = melcenters.map(function(e) {
         return 700.0 * (Math.exp(e / 1127.01048) - 1.0);
       });
@@ -243,16 +242,16 @@
       indexstop  = indexcenter.slice(1, numChannels).concat([nmax]);
 
       filterbank = [];
-      Array.from(Array(numChannels).keys()).forEach(function(c) {
+      _range(0, numChannels).forEach(function(c) {
         filterbank[c] = Array(nmax).fill(0);
 
         increment = 1.0 / (indexcenter[c] - indexstart[c]);
-        Array.from(Array(indexcenter[c]).keys()).slice(indexstart[c]).map(function(i) {
+        _range(indexstart[c], indexcenter[c]).map(function(i) {
           return filterbank[c][i] = (i - indexstart[c]) * increment;
         });
 
         decrement = 1.0 / (indexstop[c] - indexcenter[c]);
-        Array.from(Array(indexstop[c]).keys()).slice(indexcenter[c]).map(function(i) {
+        _range(indexcenter[c], indexstop[c]).map(function(i) {
           return filterbank[c][i] = 1.0 - ((i - indexcenter[c]) * decrement);
         });
       });
