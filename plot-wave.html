@@ -125,7 +125,7 @@
       // console.log(fcenters);
 
       var mspec = [];
-      Array.from(Array(numChannels).keys()).map(function(c) {
+      _range(0, numChannels).map(function(c) {
         mspec.push(
           Math.log10(
             filterbank[c].map((e, i) => Adft[i] * e )
