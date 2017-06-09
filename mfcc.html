@@ -29,21 +29,21 @@
   <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
   <script>
     window.AudioContext = window.AudioContext || window.webkitAudioContext;
-    var context = new AudioContext();
-    var audioBuffer = null;
+    const context = new AudioContext();
+    let audioBuffer = null;
 
     function handleFileSelect(event) {
-      var file = event.target.files[0];
+      const file = event.target.files[0];
 
       if (!file.type.match('audio.*')) {
         console.error('please upload audio file');
         return;
       }
 
-      var reader = new FileReader();
-      reader.onload = (function(theFile) {
-        return function(e) {
-          context.decodeAudioData(e.target.result, function(buffer) {
+      const reader = new FileReader();
+      reader.onload = ((theFile) => {
+        return (e) => {
+          context.decodeAudioData(e.target.result, (buffer) => {
             audioBuffer = buffer;
           }, onError);
         };
@@ -63,7 +63,7 @@
       playSound(audioBuffer);
     }
 
-    function _range(start, stop, step) {
+    function _range(start, stop, step = 1) {
       var index = 0;
       var length = (stop - start) / step;
       var result = Array(length);
@@ -125,11 +125,11 @@
       // console.log(fcenters);
 
       var mspec = [];
-      Array.from(Array(numChannels).keys()).map(function(c) {
+      _range(0, numChannels).map((c) => {
         mspec.push(
           Math.log10(
             filterbank[c].map((e, i) => Adft[i] * e )
-                         .reduce((acc, val) => { return acc + val }, 0)
+                         .reduce((acc, val) => acc + val, 0)
           )
         );
       });
@@ -140,14 +140,14 @@
       // like, Array.prototype.slice.call( Typed Array )
       var graph = document.getElementById('wave');
       Plotly.plot( graph, [{
-        x: time.map(function(t) { return t * 1000;}),
+        x: time.map((t) => t * 1000),
         y: Array.prototype.slice.call(owavdata),
       }], {
         xaxis: { title: 'original signal'},
       });
       var graph = document.getElementById('pwave');
       Plotly.plot( graph, [{
-        x: time.map(function(t) { return t * 1000;}),
+        x: time.map((t) => t * 1000),
         y: Array.prototype.slice.call(pwavdata),
       }], {
         xaxis: { title: 'applyed preEmphasis filter and hammingWindow' },
@@ -195,15 +195,12 @@
      *            n=0
      */
     function dct(signal, norm=false) {
-      console.log(norm);
-      return Array.from(Array(signal.length).keys()).map(function(k) {
+      return _range(0, signal.length).map((k) => {
         return (norm ? (k===0 ? Math.sqrt(1 / (4 * signal.length)) : Math.sqrt(1 / (2 * signal.length))) : 1)
               * 2
-              * (signal.map(function(x, n) {
+              * (signal.map((x, n) => {
                   return x * Math.cos( Math.PI * k * (2 * n + 1) / ( 2 * signal.length ))
-                }).reduce(function(acc, val) {
-                  return acc + val;
-                }, 0));
+                }).reduce((acc, val) => acc + val, 0));
       })
     }
 
@@ -231,28 +228,24 @@
       df = fs / nfft;
       dmel = melmax / (numChannels + 1)
 
-      melcenters = Array.from(Array(numChannels + 1).keys()).slice(1).map(function(e) { return e * dmel });
-      fcenters = melcenters.map(function(e) {
-        return 700.0 * (Math.exp(e / 1127.01048) - 1.0);
-      });
-      indexcenter = fcenters.map(function(e) {
-        return Math.round(e / df);
-      });
+      melcenters = _range(1, numChannels + 1).map((e) => e * dmel);
+      fcenters = melcenters.map((e) => 700.0 * (Math.exp(e / 1127.01048) - 1.0));
+      indexcenter = fcenters.map((e) => Math.round(e / df));
 
       indexstart = [0].concat(indexcenter.slice(0, numChannels - 1));
       indexstop  = indexcenter.slice(1, numChannels).concat([nmax]);
 
       filterbank = [];
-      Array.from(Array(numChannels).keys()).forEach(function(c) {
+      _range(0, numChannels).forEach((c) => {
         filterbank[c] = Array(nmax).fill(0);
 
         increment = 1.0 / (indexcenter[c] - indexstart[c]);
-        Array.from(Array(indexcenter[c]).keys()).slice(indexstart[c]).map(function(i) {
+        _range(indexstart[c], indexcenter[c]).map((i) => {
           return filterbank[c][i] = (i - indexstart[c]) * increment;
         });
 
         decrement = 1.0 / (indexstop[c] - indexcenter[c]);
-        Array.from(Array(indexstop[c]).keys()).slice(indexcenter[c]).map(function(i) {
+        _range(indexcenter[c], indexstop[c]).map((i) => {
           return filterbank[c][i] = 1.0 - ((i - indexcenter[c]) * decrement);
         });
       });
