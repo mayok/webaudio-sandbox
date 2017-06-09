@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <title>webaudio sample</title>
+</head>
+<body>
+  <div id="main"></div>
+  <canvas id="visualizer" height="200"></canvas>
+
+  <script>
+    var context = new (window.AudioContext || window.webkitAudioContext)();
+    var analyser = context.createAnalyser();
+
+    var recorder = context.createScriptProcessor( 2048, 1, 1 );
+    recorder.onaudioprocess = recorderProcess;
+    recorder.connect(context.destination);
+
+    var bf = context.createBiquadFilter();
+    bf.type = 'lowpass';
+    bf.frequency.value = 2048;
+    bf.connect(recorder);
+    // bf.connect(context.destination);
+
+    navigator.mediaDevices.getUserMedia({
+      audio: true,
+      video: false,
+    }).then(function(stream) {
+      var input = context.createMediaStreamSource(stream);
+      input.connect(analyser);
+    }).catch(function(err) {
+      console.log(err.name + ": " + err.message);
+    });
+
+    // analyser
+    analyser.fftSize = 2048;
+    analyser.connect(bf);
+    var bufferLength = analyser.frequencyBinCount;
+    var dataArray = new Uint8Array(bufferLength);
+    analyser.getByteTimeDomainData(dataArray);
+
+    var canvas = document.getElementById('visualizer');
+    var canvasContext = canvas.getContext('2d');
+    canvas.setAttribute('width', analyser.frequencyBinCount * 10);
+
+    function draw() {
+      drawVisual = requestAnimationFrame(draw);
+      analyser.getByteTimeDomainData(dataArray);
+      canvasContext.fillStyle = 'rgb(200,200,200)';
+      canvasContext.fillRect(0,0, canvas.width, canvas.height);
+      canvasContext.lineWidth = 2;
+      canvasContext.strokeStyle = 'rgb(0,0,0)';
+      canvasContext.beginPath();
+      var sliceWidth = canvas.width * 1.0 / bufferLength;
+      var x = 0;
+      for ( var i = 0; i < bufferLength; i+=1) {
+        var v = dataArray[i] / 128.0;
+        var y = v * canvas.height / 2;
+        if (i === 0 ) {
+          canvasContext.moveTo(x,y);
+        } else {
+          canvasContext.lineTo(x,y);
+        }
+        x += sliceWidth;
+      }
+      canvasContext.lineTo(canvas.width, canvas.height / 2);
+      canvasContext.stroke();
+    };
+
+    function recorderProcess(e) {
+      // console.log(e.input.Buffer.getChannelData(0));
+      // console.log(e.inputBuffer.getChannelData(0));
+      // playSound(e.inputBuffer);
+
+      var inputBuffer = e.inputBuffer;
+      var outputBuffer = e.outputBuffer;
+      var inputData = inputBuffer.getChannelData(0) || [];
+      var outputData = outputBuffer.getChannelData(0);
+      inputData.forEach((v, i) => {
+        outputData[i] = v;
+      });
+    }
+
+    function playSound(buffer) {
+      var source = context.createBufferSource();
+      source.buffer = buffer;
+      source.connect(context.destination);
+      source.start(0);
+    }
+
+    draw();
+
+  </script>
+</body>
+</html>
