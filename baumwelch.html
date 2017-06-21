@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Baum Welch algorithm</title>
+  </head>
+  <body>
+    <div id="main">
+    </div>
+
+    <script>
+    function _range(start, stop) {
+      if (stop === undefined) {
+        stop = start;
+        start = 0;
+      }
+
+      var index = 0;
+      var step = 1;
+      var length = (stop - start) / step;
+      var result = Array(length);
+
+      while(length) {
+        result[index] = start;
+        start += step;
+        index += 1;
+        length -= 1;
+      }
+
+      return result;
+    }
+    const forward = (A, B, O) => {
+       // 状態停留確率 a
+       // range(出力系列数), new Array(出力系列数 - 2)
+       const a = _range(O.length).map(() => new Array(O.length - 2).fill(0));
+       a[0][0] = 1.0;
+       for(let s = 0; s < a.length - 1; s++) {
+         for(let t = 0; t < a[s].length; t++) {
+           if(s === 0 && t === 0) {
+             a[s][t] = 1.0;
+           }
+           if(s === 0 && t > 0) {
+             a[s][t] = a[s][t-1] * A[s][0] * B[s][O[(s+t)-1]];
+           }
+           if(s > 0 && t === 0) {
+             a[s][t] = a[s-1][t] * A[s-1][1] * B[s-1][O[s-1]];
+           }
+           if(s > 0 && t > 0) {
+             a[s][t] = a[s-1][t] * A[s-1][1] * B[s-1][O[(s+t)-1]]
+                      +a[s][t-1] * A[s][0] * B[s][O[(s+t)-1]];
+           }
+         }
+       }
+       const s = a.length-1;
+       const t = a[s].length-1;
+       a[s][t] = a[s-1][t] * A[s-1][1] * B[s-1][O[(s+t)-1]];
+
+       return a;
+    };
+    const backward = () => {
+
+    };
+    const main = () => {
+      // 状態数を決める ( 3つ )
+      // 状態遷移確率と出力確率はランダムに決める
+
+      // 状態遷移確率 A
+      // A[*][0] は自己ループ，A[*][1] は次の状態への遷移確率を意味する
+      const A = [
+        [0.7, 0.3],
+        [0.6, 0.4],
+        [0.1, 0.9],
+      ];
+
+      // 出力確率 B
+      // 各状態におけるシンボル alpha, beta, gamma の出力確率
+      const B = [
+        [0.7, 0.2, 0.1],
+        [0.4, 0.3, 0.3],
+        [0.1, 0.1, 0.8],
+      ];
+
+      // 出力系列
+      // 0: alpha, 1: beta, 2: gamma
+      const O = [0, 0, 1, 2];
+      console.log(forward(A, B, O));
+    }
+
+    main();
+    </script>
+  </body>
+</html>
