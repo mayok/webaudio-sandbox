@@ -57,8 +57,19 @@
 
        return a;
     };
-    const backward = () => {
+    const backward = (A, B, O) => {
+      const b = _range(O.length).map(() => new Array(O.length -2).fill(0));
+      b[b.length-1][b[0].length-1] = 1.0;
+      for (let s = b.length - 2; s >= 0; s--) {
+        for (let t = b[0].length - 1; t >= 0; t--) {
+          b[s][t] = b[s+1][t] * A[s][1] * B[s][O[s+t]];
+          if(t === 0) {
+            b[s][t] += b[s][t+1] * A[s][0] * B[s][O[s+t]];
+          }
+        }
+      }
 
+      return b;
     };
     const main = () => {
       // 状態数を決める ( 3つ )
@@ -84,6 +95,7 @@
       // 0: alpha, 1: beta, 2: gamma
       const O = [0, 0, 1, 2];
       console.log(forward(A, B, O));
+      console.log(backward(A,B,O));
     }
 
     main();
