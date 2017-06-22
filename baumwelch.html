@@ -32,7 +32,7 @@
     const forward = (A, B, O) => {
        // 状態停留確率 a
        // range(出力系列数), new Array(出力系列数 - 2)
-       const a = _range(O.length).map(() => new Array(O.length - 2).fill(0));
+       const a = _range(A.length + 1).map(() => new Array(O.length - 2).fill(0));
        a[0][0] = 1.0;
        for(let s = 0; s < a.length - 1; s++) {
          for(let t = 0; t < a[s].length; t++) {
@@ -58,7 +58,7 @@
        return a;
     };
     const backward = (A, B, O) => {
-      const b = _range(O.length).map(() => new Array(O.length -2).fill(0));
+      const b = _range(A.length + 1).map(() => new Array(O.length -2).fill(0));
       b[b.length-1][b[0].length-1] = 1.0;
       for (let s = b.length - 2; s >= 0; s--) {
         for (let t = b[0].length - 1; t >= 0; t--) {
