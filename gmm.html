@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>混合ガウス分布</title>
+  </head>
+  <body>
+    <div id='main'>
+    </div>
+
+    <script>
+    var K = 2;
+    function _range(start, stop) {
+      if (stop === undefined) {
+        stop = start;
+        start = 0;
+      }
+
+      var index = 0;
+      var step = 1;
+      var length = (stop - start) / step;
+      var result = Array(length);
+
+      while(length) {
+        result[index] = start;
+        start += step;
+        index += 1;
+        length -= 1;
+      }
+
+      return result;
+    }
+
+    function rand(k, n) {
+      if(n === undefined)
+        return _range(k).map(() => Math.random());
+      return _range(k).map(() => {
+        return _range(n).map(() => Math.random())
+      });
+    }
+
+    function zeros(l, m, n) {
+      if(n === undefined)
+        return _range(l).map(() => new Array(m).fill(0));
+      return _range(l).map(()=> _range(m).map(() => new Array(n).fill(0)) );
+    }
+    function scale(X) {
+      var col = X[1].length;
+
+      // var mu = mean(X, axis=0)
+      // var sigma = std(X, axis=0)
+
+      // _range(col).forEach(i => {
+      //   X
+      // })
+
+    }
+
+    function gaussian(x, mean, cov) {
+      var temp1 = 1 / ((1 * Math.PI) ** (x.length / 2.0));
+      // var temp2 = 1 / ()
+      // var temp3 = -1 * 0.5 *
+
+      // return temp1 * temp2 * Math.exp(temp3);
+    }
+
+    function likelihood(X, mean, cov, pi) {
+      var sum = 0.0;
+      _range(X.length).forEach(n => {
+        var temp = 0.0;
+        _range(K).forEach(k => {
+          temp += pi[k] * gaussian(X[n], mean[k], cov[k]);
+        });
+        sum += Math.log(temp);
+      });
+
+      return sum;
+    }
+
+
+    function main() {
+      // load data
+      // X = data
+      // X = scale(X)
+      // N = X.length;
+      var N = 4; // temporary
+
+      var mean = rand(K, 2);
+      var cov = zeros(K, 2, 2);
+
+      _range(K).forEach(k => {
+        cov[k] = [[1.0, 0.0], [0.0, [1.0]]];
+      });
+      var pi = rand(K);
+
+      var gamma = zeros(N, K);
+
+      var like = likelihood(X, mean, cov, pi);
+
+      var turn = 0;
+      while(true) {
+        console.log(turn, like);
+
+        // expectation step
+        _range(N).forEach(n => {
+          var denominator = 0.0;
+          _range(K).forEach(k => {
+            denominator += pi[k] * gaussian(X[n], mean[k], cov[k]);
+          });
+
+          _range(K).forEach(k => {
+            gamma[n][k] = pi[k] * gaussian(X[n], mean[k], cov[k]) / denominator;
+          });
+        });
+
+        // maximization step
+        _range(K).forEach(k => {
+
+          // calculate Nk
+          var Nk = 0.0
+          _range(N).forEach(n => {
+            Nk += gamma[n][k];
+          });
+
+          // calc mean
+          mean[k] = [0.0, 0.0];
+          _range(N).forEach(n => {
+            mean[k] += gamma[n][k] * X[n];
+          });
+          mean[k] /= Nk;
+
+          // calc cov
+          cov[k] = [[0.0, 0.0], [0.0, 0.0]];
+          _range(N).forEach(n => {
+            var temp = X[n] - mean[k];
+            // TODO: python の matrix, reshape について調べる
+            // cov[k] += gamma[n][k] * matrix(temp).reshape(2, 1) * matrix(temp).reshape(1, 2);
+          });
+          cov[k] /= Nk;
+
+          pi[k] = Nk / N;
+        });
+
+        var new_like = likelihood(X, mean, cov, pi);
+        var diff = new_like - like;
+        if (diff < 0.01) break;
+        like = new_like;
+        turn += 1;
+      }
+
+      // plot
+
+
+
+    }
+
+    main();
+    </script>
+  </body>
+</html>
