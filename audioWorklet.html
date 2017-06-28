@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Hello AudioWorklet!</title>
+  </head>
+  <body>
+    <div id="main">
+      This program references to github.com/GoogleChrome/web-audio-samples
+    </div>
+    <script>
+    function runBypasser() {
+      window.audioWorklet.addModule('js/bypasser.js').then(() => {
+        const context = new AudioContext();
+        let oscillator = new OscillatorNode(context);
+        let bypasser = new audioWorkletNode(context, 'bypasser');
+        oscillator.connect(bypasser).connect(context.destination);
+
+        oscillator.start();
+      });
+    }
+
+    runBypasser();
+    </script>
+  </body>
+</html>
