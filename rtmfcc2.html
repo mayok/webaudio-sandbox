@@ -123,56 +123,10 @@
           )
         );
       });
+
       console.log(dct(mspec, norm=true).slice(0,12));
 
-      // plotly.js does not support typed array, so we should convert it to Array
-      // like, Array.prototype.slice.call( Typed Array )
-      var graph = document.getElementById('wave');
-      Plotly.plot( graph, [{
-        x: time.map((t) => t * 1000),
-        y: Array.prototype.slice.call(owavdata),
-      }], {
-        xaxis: { title: 'original signal'},
-      });
-      var graph = document.getElementById('pwave');
-      Plotly.plot( graph, [{
-        x: time.map((t) => t * 1000),
-        y: Array.prototype.slice.call(pwavdata),
-      }], {
-        xaxis: { title: 'applyed preEmphasis filter and hammingWindow' },
-      });
-
-      var graph = document.getElementById('ampspectrum');
-      Plotly.plot( graph, [{
-        x: freqList,
-        y: Adft,
-      }], {
-        xaxis: { title: 'amplitude spectrum' },
-      });
-      var graph = document.getElementById('powerspectrum');
-      Plotly.plot( graph, [{
-        x: freqList,
-        y: Pdft,
-      }], {
-        xaxis: { title: 'power spectrum' },
-      });
-
-      var graph = document.getElementById('melfiltered');
-      Plotly.plot( graph, [{
-        x: freqList,
-        y: Adft.map((e) => Math.log10(e)),
-      }], {
-        xaxis: { title: 'applyed mel filterbank'}
-      });
-      var graph = document.getElementById('melfiltered20');
-      Plotly.plot( graph, [{
-        x: fcenters,
-        y: mspec,
-        type: 'scatter',
-        mode: 'lines+markers',
-      }], {
-        xaxis: { title: 'applyed mel filterbank, 20 plot' }
-      });
+      requestAnimationFrame(draw);
     }
 
     /*
@@ -308,7 +262,10 @@
     function onError() {
       console.log("error happen");
     }
-    document.getElementById('draw').addEventListener('click', draw, false);
+    // document.getElementById('draw').addEventListener('click', draw, false);
+    document.getElementById('draw').addEventListener('click', function() {
+      window.requestAnimationFrame(draw);
+    }, false);
   </script>
 </body>
 </html>
