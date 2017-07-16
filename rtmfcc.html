@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <title>webaudio sample</title>
+</head>
+<body>
+  <div id="main">
+    <button id="draw">Draw graph</button>
+    <div>
+      <div style="display: inline-block;" id="wave"></div>
+      <div style="display: inline-block;" id="pwave"></div>
+    </div>
+
+    <div>
+      <div style="display: inline-block;" id="ampspectrum"></div>
+      <div style="display: inline-block;" id="powerspectrum"></div>
+    </div>
+
+    <div>
+      <div style="display: inline-block;" id="melfiltered"></div>
+      <div style="display: inline-block;" id="melfiltered20"></div>
+    </div>
+  </div>
+
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  <script>
+    window.AudioContext = window.AudioContext || window.webkitAudioContext;
+    const context = new AudioContext();
+    let audioBuffer = null;
+
+    var processor = context.createScriptProcessor( 2048, 1, 1 );
+    processor.onaudioprocess = rtmfccProcess;
+    processor.connect(context.destination);
+
+    var bf = context.createBiquadFilter();
+    bf.type = 'lowpass';
+    bf.frequency.value = 2048;
+    bf.connect(processor);
+
+    navigator.mediaDevices.getUserMedia({
+      audio: true,
+      video: false,
+    }).then(function(stream) {
+      var input = context.createMediaStreamSource(stream);
+      input.connect(bf);
+    }).catch(function(err) {
+      console.log(err.name + ": " + err.message);
+    });
+
+    function rtmfccProcess(e) {
+      var inputBuffer = e.inputBuffer;
+      if(inputBuffer === undefined) return;
+
+      audioBuffer = inputBuffer;
+
+    }
+
+    function _range(start, stop, step = 1) {
+      var index = 0;
+      var length = (stop - start) / step;
+      var result = Array(length);
+
+      while(length) {
+        result[index] = start;
+        start += step;
+        index += 1;
+        length -= 1;
+      }
+
+      return result;
+    }
+
+    function draw() {
+      var sampleRate = context.sampleRate;
+      var len = audioBuffer.length;
+      var t = _range(0.0, len / sampleRate, 1 / sampleRate);
+
+      var center = len / 2;
+      var cuttime = 0.04;
+      var wav = audioBuffer.getChannelData(0);
+      var wavdata = wav.slice(center - cuttime/2*sampleRate, center + cuttime/2*sampleRate);
+      var time = t.slice(center - cuttime/2*sampleRate, center + cuttime/2*sampleRate);
+
+      var owavdata = wavdata.slice();
+
+      // pre-emphasis filter
+      var pwavdata = preEmphasis(wavdata, 0.97);
+
+      var hammingWindow = hamming(pwavdata.length);
+      for(var i = 0; i < pwavdata.length; i +=1 ) {
+        pwavdata[i] *= hammingWindow[i]
+      }
+
+      // DFT
+      // number of samples
+      var n = 2048
+      var im = [];
+      [wavdata, im] = minifft(pwavdata, n);
+
+
+      var Adft = [],
+          Pdft = [],
+          freqList = [];
+      for (var i = 0; i < n/2; i+=1) {
+        Pdft[i] = wavdata[i] * wavdata[i] + im[i] * im[i]
+        Adft[i] = Math.sqrt(Pdft[i]);
+        freqList[i] = i * sampleRate / n;
+      }
+
+      // mel filterbank
+      var numChannels = 20;
+      df = sampleRate / n
+      var filterbank, fcenters;
+      [filterbank, fcenters] = melFilterBank(sampleRate, n, numChannels);
+
+      var mspec = [];
+      _range(0, numChannels).map((c) => {
+        mspec.push(
+          Math.log10(
+            filterbank[c].map((e, i) => Adft[i] * e )
+                         .reduce((acc, val) => acc + val, 0)
+          )
+        );
+      });
+      console.log(mspec);
+
+      console.log(dct(mspec, norm=true).slice(0,12));
+
+      // plotly.js does not support typed array, so we should convert it to Array
+      // like, Array.prototype.slice.call( Typed Array )
+      var graph = document.getElementById('wave');
+      Plotly.plot( graph, [{
+        x: time.map((t) => t * 1000),
+        y: Array.prototype.slice.call(owavdata),
+      }], {
+        xaxis: { title: 'original signal'},
+      });
+      var graph = document.getElementById('pwave');
+      Plotly.plot( graph, [{
+        x: time.map((t) => t * 1000),
+        y: Array.prototype.slice.call(pwavdata),
+      }], {
+        xaxis: { title: 'applyed preEmphasis filter and hammingWindow' },
+      });
+
+      var graph = document.getElementById('ampspectrum');
+      Plotly.plot( graph, [{
+        x: freqList,
+        y: Adft,
+      }], {
+        xaxis: { title: 'amplitude spectrum' },
+      });
+      var graph = document.getElementById('powerspectrum');
+      Plotly.plot( graph, [{
+        x: freqList,
+        y: Pdft,
+      }], {
+        xaxis: { title: 'power spectrum' },
+      });
+
+      var graph = document.getElementById('melfiltered');
+      Plotly.plot( graph, [{
+        x: freqList,
+        y: Adft.map((e) => Math.log10(e)),
+      }], {
+        xaxis: { title: 'applyed mel filterbank'}
+      });
+      var graph = document.getElementById('melfiltered20');
+      Plotly.plot( graph, [{
+        x: fcenters,
+        y: mspec,
+        type: 'scatter',
+        mode: 'lines+markers',
+      }], {
+        xaxis: { title: 'applyed mel filterbank, 20 plot' }
+      });
+    }
+
+    /*
+     * DCT: Discrete Cosine Transform
+     *
+     *
+     *            N-1
+     *  y[k] = 2* sum x[n]*cos(pi*k*(2n+1)/(2*N)), 0 <= k < N.
+     *            n=0
+     */
+    function dct(signal, norm=false) {
+      return _range(0, signal.length).map((k) => {
+        return (norm ? (k===0 ? Math.sqrt(1 / (4 * signal.length)) : Math.sqrt(1 / (2 * signal.length))) : 1)
+              * 2
+              * (signal.map((x, n) => {
+                  return x * Math.cos( Math.PI * k * (2 * n + 1) / ( 2 * signal.length ))
+                }).reduce((acc, val) => acc + val, 0));
+      })
+    }
+
+    /*
+     * Hz to mel
+     * mel to Hz
+     */
+    // function hz2mel(f) {
+    //   return 1127.01048 * Math.log(f / 700.0 + 1.0);
+    // }
+    //
+    // function mel2hz(m) {
+    //   return 700.0 * (Math.exp(m / 1127.01048) - 1.0);
+    // }
+
+    /*
+     * melFilterBank
+     *
+     */
+    function melFilterBank(fs, nfft, numChannels) {
+      fmax = fs / 2;
+      melmax = 1127.01048 * Math.log(fmax / 700.0 + 1.0);
+      nmax = nfft / 2;
+
+      df = fs / nfft;
+      dmel = melmax / (numChannels + 1)
+
+      melcenters = _range(1, numChannels + 1).map((e) => e * dmel);
+      fcenters = melcenters.map((e) => 700.0 * (Math.exp(e / 1127.01048) - 1.0));
+      indexcenter = fcenters.map((e) => Math.round(e / df));
+
+      indexstart = [0].concat(indexcenter.slice(0, numChannels - 1));
+      indexstop  = indexcenter.slice(1, numChannels).concat([nmax]);
+
+      filterbank = [];
+      _range(0, numChannels).forEach((c) => {
+        filterbank[c] = Array(nmax).fill(0);
+
+        increment = 1.0 / (indexcenter[c] - indexstart[c]);
+        _range(indexstart[c], indexcenter[c]).map((i) => {
+          return filterbank[c][i] = (i - indexstart[c]) * increment;
+        });
+
+        decrement = 1.0 / (indexstop[c] - indexcenter[c]);
+        _range(indexcenter[c], indexstop[c]).map((i) => {
+          return filterbank[c][i] = 1.0 - ((i - indexcenter[c]) * decrement);
+        });
+      });
+
+      return [filterbank, fcenters];
+
+    }
+
+    /*
+     * hamming window
+     *   w(n) = 0.54 - 0.46 cos( 2 PI n / (M - 1) ), 0 <= n <= M - 1
+     */
+     function hamming(n) {
+       var w = [];
+       for(var i = 0; i < n; i += 1) {
+         w[i] = 0.54 - 0.46 * Math.cos( 2.0 * Math.PI * i / (n - 1));
+       }
+       return w;
+     }
+
+    /*
+     * pre emphasis filter
+     *   y(n) = x(n) - p x(n - 1)
+     */
+    function preEmphasis(signal, p = 0.97) {
+      var y = [];
+      y[0] = signal[0];
+      for(var i = 1; i < signal.length; i+=1){
+        y[i] = signal[i] - ( p * signal[i - 1]);
+      }
+
+      return y;
+    }
+
+    function minifft(data, n = 0) {
+      var N = n || data.length;
+      if(data.length < n) {
+        var re = Array.prototype.slice.call(data).concat(new Array(n - data.length).fill(0));
+      } else {
+        var re = data.slice(0, n);
+      }
+      var im = new Array(n).fill(0);
+
+      for (var i = 0; i < N; i+=1) {
+        for(var j = 0, h = i, k = N; k >>= 1; h >>= 1) {
+          j = (j << 1) | (h & 1);
+        }
+        if (j > i) {
+          re[j] = [re[i], re[i] = re[j]][0];
+          im[j] = [im[i], im[i] = im[j]][0];
+        }
+      }
+      for(var hN = 1; hN * 2 <= N; hN *= 2) {
+        for(var i = 0; i < N; i+= hN * 2) {
+          for(var j = i; j < i + hN; j+=1) {
+            var cos = Math.cos(Math.PI * (j - i) / hN),
+                sin = Math.sin(Math.PI * (j - i) / hN);
+            var tre =  re[j+hN] * cos + im[j+hN] * sin,
+                tim = -re[j+hN] * sin + im[j+hN] * cos;
+            re[j+hN] = re[j] - tre;
+            im[j+hN] = im[j] - tim;
+            re[j] += tre;
+            im[j] += tim;
+          }
+        }
+      }
+
+      return [re, im];
+    }
+
+    function onError() {
+      console.log("error happen");
+    }
+    document.getElementById('draw').addEventListener('click', draw, false);
+  </script>
+</body>
+</html>
