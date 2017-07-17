@@ -5,6 +5,7 @@
   <title>webaudio sample</title>
 </head>
 <body>
+  checkbox: <input type="checkbox" id="checkbox">
   <div id="main">
     <button id="draw">Draw graph</button>
     <div>
@@ -53,6 +54,10 @@
       if(inputBuffer === undefined) return;
 
       audioBuffer = inputBuffer;
+
+      if(document.getElementById('checkbox').checked) {
+        draw();
+      }
 
     }
 
@@ -126,7 +131,7 @@
 
       console.log(dct(mspec, norm=true).slice(0,12));
 
-      requestAnimationFrame(draw);
+      // requestAnimationFrame(draw);
     }
 
     /*
@@ -263,9 +268,9 @@
       console.log("error happen");
     }
     // document.getElementById('draw').addEventListener('click', draw, false);
-    document.getElementById('draw').addEventListener('click', function() {
-      window.requestAnimationFrame(draw);
-    }, false);
+    // document.getElementById('draw').addEventListener('click', function() {
+    //   window.requestAnimationFrame(draw);
+    // }, false);
   </script>
 </body>
 </html>
