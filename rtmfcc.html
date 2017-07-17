@@ -85,12 +85,14 @@
       var owavdata = wavdata.slice();
 
       // pre-emphasis filter
-      var pwavdata = preEmphasis(wavdata, 0.97);
+      // var pwavdata = preEmphasis(wavdata, 0.97);
+      //
+      // var hammingWindow = hamming(pwavdata.length);
+      // for(var i = 0; i < pwavdata.length; i +=1 ) {
+      //   pwavdata[i] *= hammingWindow[i]
+      // }
 
-      var hammingWindow = hamming(pwavdata.length);
-      for(var i = 0; i < pwavdata.length; i +=1 ) {
-        pwavdata[i] *= hammingWindow[i]
-      }
+      var phwav = preEmphHamming(wavdata);
 
       // DFT
       // number of samples
@@ -118,7 +120,7 @@
       _range(0, numChannels).map((c) => {
         mspec.push(
           Math.log10(
-            filterbank[c].map((e, i) => Adft[i] * e )
+            filterbank[c].map((e, i) => Pdft[i] * e )
                          .reduce((acc, val) => acc + val, 0)
           )
         );
@@ -264,6 +266,18 @@
       y[0] = signal[0];
       for(var i = 1; i < signal.length; i+=1){
         y[i] = signal[i] - ( p * signal[i - 1]);
+      }
+
+      return y;
+    }
+
+    function preEmphHamming(signal) {
+      var y = [];
+      y[0] = signal[0] * 0.08;
+
+      for(var i = 1; i < signal.length; i++) {
+        y[i] = signal[i] - (0.97 * signal[i-1]);
+        y[i] *= 0.54 - 0.46 * Math.cos( 2.0 * Math.PI * i / (signal.length - 1));
       }
 
       return y;
