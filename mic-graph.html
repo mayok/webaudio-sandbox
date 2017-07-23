@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>mic graph</title>
+  </head>
+  <body>
+    <button id='button' type='button'>Record</button>
+
+    <div>
+      <div style="display: inline-block;" id="wave"></div>
+      <div style="display: inline-block;" id="pwave"></div>
+    </div>
+
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script>
+      let audioBuffer = null;
+      let count = 0;
+
+      window.AudioContext = window.AudioContext || window.webkitAudioContext;
+      const context = new AudioContext();
+
+      var processor = context.createScriptProcessor( 2048, 1, 1 );
+      processor.onaudioprocess = rtmfccProcess;
+      processor.connect(context.destination);
+
+      var bf = context.createBiquadFilter();
+      bf.type = 'lowpass';
+      bf.frequency.value = 2048;
+      bf.connect(processor);
+
+      navigator.mediaDevices.getUserMedia({
+        audio: true,
+        video: false,
+      }).then(function(stream) {
+        var input = context.createMediaStreamSource(stream);
+        input.connect(bf);
+      }).catch(function(err) {
+        console.log(err.name + ": " + err.message);
+      });
+
+      function rtmfccProcess(e) {
+        var inputBuffer = e.inputBuffer;
+        if(inputBuffer === undefined) return;
+
+        audioBuffer = inputBuffer;
+      }
+
+      function _range(start, stop, step = 1) {
+        var index = 0;
+        var length = (stop - start) / step;
+        var result = Array(length);
+
+        while(length) {
+          result[index] = start;
+          start += step;
+          index += 1;
+          length -= 1;
+        }
+
+        return result;
+      }
+
+      // draw
+      function draw() {
+        var time = _range(0.0, audioBuffer.length / 44100, 1 / 44100);
+
+        var graph = document.getElementById('wave');
+        Plotly.plot( graph, [{
+          x: time.map((t) => t * 1000),
+          y: Array.prototype.slice.call(audioBuffer.getChannelData(0)),
+        }], {
+          xaxis: { title: 'original signal'},
+        });
+        // var graph = document.getElementById('pwave');
+        // Plotly.plot( graph, [{
+        //   x: time.map((t) => t * 1000),
+        //   y: Array.prototype.slice.call(pwavdata),
+        // }], {
+        //   xaxis: { title: 'applyed preEmphasis filter and hammingWindow' },
+        // });
+      }
+
+      function record() {
+        let ret = window.setInterval(function() {
+          draw()
+          count++;
+          if(count > 2) clearInterval(ret);
+        }, 2000);
+      }
+
+      document.getElementById('button').addEventListener('click', record, false);
+    </script>
+  </body>
+</html>
