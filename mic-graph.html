@@ -12,6 +12,21 @@
       <div style="display: inline-block;" id="pwave"></div>
     </div>
 
+    <div>
+      <div style="display: inline-block;" id="ampspectrum"></div>
+      <div style="display: inline-block;" id="powerspectrum"></div>
+    </div>
+
+    <div>
+      <div style="display: inline-block;" id="melfiltered"></div>
+      <div style="display: inline-block;" id="melfiltered20"></div>
+    </div>
+
+     <div>
+      <div style="display: inline-block;" id="mfcc"></div>
+    </div>
+
+    <script src='./js/mfcc.js'></script>
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
     <script>
       let audioBuffer = null;
@@ -46,47 +61,106 @@
         audioBuffer = inputBuffer;
       }
 
-      function _range(start, stop, step = 1) {
-        var index = 0;
-        var length = (stop - start) / step;
-        var result = Array(length);
-
-        while(length) {
-          result[index] = start;
-          start += step;
-          index += 1;
-          length -= 1;
-        }
-
-        return result;
-      }
-
       // draw
       function draw() {
         var time = _range(0.0, audioBuffer.length / 44100, 1 / 44100);
+        var wav = audioBuffer.getChannelData(0);
+        var pwav = preEmphHamming(wav);
+        var [fwav, im] = minifft(pwav, 2048);
 
+        var Pdft = [], Adft = [], freqList = [];
+        for (var i = 0; i < 1024; i+=1) {
+          Pdft[i] = fwav[i] * fwav[i] + im[i] * im[i]
+          Adft[i] = Math.sqrt(Pdft[i]);
+          freqList[i] = i * 44100 / 2048;
+        }
+
+        var [filterbank, fcenters] = melFilterBank(44100, 2048, 20);
+
+        var mspec = [];
+        _range(0, 20).map((c) => {
+          mspec.push(
+            Math.log10(
+              filterbank[c].map((e, i) => Pdft[i] * e )
+                           .reduce((acc, val) => acc + val, 0)
+            )
+          );
+        });
+
+        console.log(dct(mspec, norm=true).slice(0,12));
+
+        // original signal
         var graph = document.getElementById('wave');
         Plotly.plot( graph, [{
           x: time.map((t) => t * 1000),
-          y: Array.prototype.slice.call(audioBuffer.getChannelData(0)),
+          y: Array.prototype.slice.call(wav),
         }], {
           xaxis: { title: 'original signal'},
         });
-        // var graph = document.getElementById('pwave');
-        // Plotly.plot( graph, [{
-        //   x: time.map((t) => t * 1000),
-        //   y: Array.prototype.slice.call(pwavdata),
-        // }], {
-        //   xaxis: { title: 'applyed preEmphasis filter and hammingWindow' },
-        // });
+
+        // preEmphHamming
+        var graph = document.getElementById('pwave');
+        Plotly.plot( graph, [{
+          x: time.map((t) => t * 1000),
+          y: Array.prototype.slice.call(pwav),
+        }], {
+          xaxis: { title: 'applyed preEmphasis filter and hammingWindow' },
+        });
+
+        // ampspectrum
+        var graph = document.getElementById('ampspectrum');
+        Plotly.plot( graph, [{
+          x: freqList,
+          y: Adft,
+        }], {
+          xaxis: { title: 'amplitude spectrum' },
+        });
+
+        // power spectrum
+        var graph = document.getElementById('powerspectrum');
+        Plotly.plot( graph, [{
+          x: freqList,
+          y: Pdft,
+        }], {
+          xaxis: { title: 'power spectrum' },
+        });
+
+        // melfiltered
+        var graph = document.getElementById('melfiltered');
+        Plotly.plot( graph, [{
+          x: freqList,
+          y: Pdft.map((e) => Math.log10(e)),
+        }], {
+          xaxis: { title: 'applyed mel filterbank'}
+        });
+
+        // melfiltered, 20 plot
+        var graph = document.getElementById('melfiltered20');
+        Plotly.plot( graph, [{
+          x: fcenters,
+          y: mspec,
+          type: 'scatter',
+          mode: 'lines+markers',
+        }], {
+          xaxis: { title: 'applyed mel filterbank, 20 plot' }
+        });
+
+        var graph = document.getElementById('mfcc');
+        Plotly.plot( graph, [{
+          x: fcenters,
+          y: dct(mspec, norm=true).slice(0,12),
+          mode: 'lines+markers',
+        }], {
+          xaxis: { title: 'mfcc' }
+        });
       }
 
       function record() {
         let ret = window.setInterval(function() {
           draw()
           count++;
-          if(count > 2) clearInterval(ret);
-        }, 2000);
+          if(count > 4) clearInterval(ret);
+        }, 250);
       }
 
       document.getElementById('button').addEventListener('click', record, false);
