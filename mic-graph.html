@@ -94,8 +94,9 @@
         // preAudioBuffer
         let pmspec = mfcc(preAudioBuffer, { threshold: -100 });
 
-        // console.log(dct(mspec, norm=true).slice(0,12));
-        // console.log(pmspec);
+        // dmfcc の2乗和をとる
+        // しきい値より大きければ 母音, 小さければ 子音 らしい
+        console.log(pmspec.reduce((acc, val) => acc + val * val, 0));
 
         // original signal
         var graph = document.getElementById('wave');
