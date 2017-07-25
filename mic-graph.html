@@ -94,7 +94,8 @@
         // preAudioBuffer
         let pmspec = mfcc(preAudioBuffer, { threshold: -100 });
 
-        console.log(dct(mspec, norm=true).slice(0,12));
+        // console.log(dct(mspec, norm=true).slice(0,12));
+        // console.log(pmspec);
 
         // original signal
         var graph = document.getElementById('wave');
@@ -164,11 +165,12 @@
         var graph = document.getElementById('dmfcc');
         Plotly.plot( graph, [{
           x: fcenters,
-          y: mspec.map((e, i) => e - pmspec[i]),
+          y: dct(mspec, norm=true).slice(0,12).map((e, i) => e - pmspec[i]),
           mode: 'lines+markers',
         }], {
            xaxis: { title: 'dmfcc' }
         });
+
       }
 
       function record() {
