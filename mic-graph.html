@@ -24,13 +24,16 @@
 
      <div>
       <div style="display: inline-block;" id="mfcc"></div>
+      <div style="display: inline-block;" id="dmfcc"></div>
     </div>
 
     <script src='./js/mfcc.js'></script>
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
     <script>
       let audioBuffer = null;
+      let preAudioBuffer = null;
       let count = 0;
+      let index = 0;
 
       window.AudioContext = window.AudioContext || window.webkitAudioContext;
       const context = new AudioContext();
@@ -58,6 +61,7 @@
         var inputBuffer = e.inputBuffer;
         if(inputBuffer === undefined) return;
 
+        preAudioBuffer = audioBuffer;
         audioBuffer = inputBuffer;
       }
 
@@ -86,6 +90,9 @@
             )
           );
         });
+
+        // preAudioBuffer
+        let pmspec = mfcc(preAudioBuffer, { threshold: -100 });
 
         console.log(dct(mspec, norm=true).slice(0,12));
 
@@ -153,6 +160,15 @@
         }], {
           xaxis: { title: 'mfcc' }
         });
+
+        var graph = document.getElementById('dmfcc');
+        Plotly.plot( graph, [{
+          x: fcenters,
+          y: mspec.map((e, i) => e - pmspec[i]),
+          mode: 'lines+markers',
+        }], {
+           xaxis: { title: 'dmfcc' }
+        });
       }
 
       function record() {
@@ -162,6 +178,7 @@
           count++;
         }, 250);
       }
+
 
       document.getElementById('button').addEventListener('click', record, false);
     </script>
