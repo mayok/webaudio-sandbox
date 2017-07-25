@@ -157,9 +157,9 @@
 
       function record() {
         let ret = window.setInterval(function() {
+          if(count > 4) clearInterval(ret);
           draw()
           count++;
-          if(count > 4) clearInterval(ret);
         }, 250);
       }
 
