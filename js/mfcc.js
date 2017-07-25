@@ -13,7 +13,8 @@ function _range(start, stop, step = 1) {
   return result;
 }
 
-function mfcc( audioBuffer ) {
+function mfcc( audioBuffer, { threshold = 0.01} ) {
+  if (audioBuffer === null) return null;
   var sampleRate = 44100;
   var len = audioBuffer.length;
 
@@ -25,7 +26,7 @@ function mfcc( audioBuffer ) {
   var wavdata = preEmphHamming(audioBuffer.getChannelData(0));
 
   // TODO: 閾値の適切な値を決める
-  if( Math.max(...wavdata) < 0.01 )
+  if( Math.max(...wavdata) < threshold )
     return null;
 
   // DFT
