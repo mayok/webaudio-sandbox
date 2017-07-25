@@ -25,7 +25,6 @@ function mfcc( audioBuffer, { threshold = 0.01} ) {
 
   var wavdata = preEmphHamming(audioBuffer.getChannelData(0));
 
-  // TODO: 閾値の適切な値を決める
   if( Math.max(...wavdata) < threshold )
     return null;
 
